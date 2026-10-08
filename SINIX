@@ -1,0 +1,323 @@
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+-- TPWalk переменные
+TPWalk = false
+local TPWalkingConnection = nil
+local currentSpeed = 1.0
+
+-- Создаем GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TPWalkGUI"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999
+
+if gethui then
+    ScreenGui.Parent = gethui()
+elseif syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = game:GetService("CoreGui")
+else
+    ScreenGui.Parent = game:GetService("CoreGui")
+end
+
+-- Основное окно (компактное)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 120, 0, 60)
+MainFrame.Position = UDim2.new(0, 10, 0, 100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Selectable = true
+MainFrame.Parent = ScreenGui
+
+-- Скругление углов
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 4)
+UICorner.Parent = MainFrame
+
+-- Обводка
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(70, 70, 70)
+UIStroke.Thickness = 1
+UIStroke.Parent = MainFrame
+
+-- Заголовок (draggable область)
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, 0, 0, 18)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Title.BackgroundTransparency = 0
+Title.BorderSizePixel = 0
+Title.Text = "TPWalk"
+Title.TextColor3 = Color3.fromRGB(220, 220, 220)
+Title.TextSize = 11
+Title.Font = Enum.Font.GothamMedium
+Title.Parent = MainFrame
+
+-- Скругление для заголовка
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 4, 0, 0)
+TitleCorner.Parent = Title
+
+-- Поле ввода скорости (компактное)
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Name = "SpeedBox"
+SpeedBox.Size = UDim2.new(0.5, -8, 0, 22)
+SpeedBox.Position = UDim2.new(0, 5, 0, 22)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SpeedBox.BackgroundTransparency = 0
+SpeedBox.BorderSizePixel = 0
+SpeedBox.Text = "1.0"
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBox.TextSize = 11
+SpeedBox.Font = Enum.Font.Gotham
+SpeedBox.PlaceholderText = "Speed"
+SpeedBox.PlaceholderColor3 = Color3.fromRGB(130, 130, 130)
+SpeedBox.ClearTextOnFocus = false
+SpeedBox.TextTruncate = Enum.TextTruncate.AtEnd
+SpeedBox.Parent = MainFrame
+
+-- Скругление для поля ввода
+local SpeedBoxCorner = Instance.new("UICorner")
+SpeedBoxCorner.CornerRadius = UDim.new(0, 2)
+SpeedBoxCorner.Parent = SpeedBox
+
+-- Кнопка включения/выключения
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0.5, -8, 0, 22)
+ToggleButton.Position = UDim2.new(0.5, 3, 0, 22)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50) -- Красный для выключено
+ToggleButton.BackgroundTransparency = 0
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Text = "OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 11
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Parent = MainFrame
+
+-- Скругление для кнопки
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 2)
+ToggleCorner.Parent = ToggleButton
+
+-- Кнопка закрытия (маленькая)
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Size = UDim2.new(0, 16, 0, 16)
+CloseButton.Position = UDim2.new(1, -18, 0, 1)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseButton.BackgroundTransparency = 0
+CloseButton.BorderSizePixel = 0
+CloseButton.Text = "×"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 12
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = Title
+
+-- Скругление для кнопки закрытия
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 2)
+CloseCorner.Parent = CloseButton
+
+-- Индикатор состояния (текст внизу)
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Size = UDim2.new(1, -10, 0, 14)
+StatusLabel.Position = UDim2.new(0, 5, 0, 47)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "OFF | Speed: 1.0"
+StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+StatusLabel.TextSize = 9
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = MainFrame
+
+-- Функции для телепортирующей ходьбы
+local function getHum()
+    local character = game:GetService("Players").LocalPlayer.Character
+    if character then
+        return character:FindFirstChildOfClass("Humanoid")
+    end
+    return nil
+end
+
+local function getChar()
+    return game:GetService("Players").LocalPlayer.Character
+end
+
+-- Функция для форматирования скорости до десятых
+local function formatSpeed(speed)
+    if speed % 1 == 0 then
+        return string.format("%d", speed)
+    else
+        return string.format("%.1f", speed)
+    end
+end
+
+local function updateStatus()
+    local statusText = TPWalk and "ON" or "OFF"
+    local statusColor = TPWalk and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50) -- ON зеленый, OFF красный
+    
+    ToggleButton.BackgroundColor3 = statusColor
+    ToggleButton.Text = statusText
+    StatusLabel.Text = string.format("%s | Speed: %s", statusText, formatSpeed(currentSpeed))
+end
+
+local function stopTPWalk()
+    if TPWalk then
+        TPWalk = false
+        if TPWalkingConnection then
+            TPWalkingConnection:Disconnect()
+            TPWalkingConnection = nil
+        end
+        updateStatus()
+    end
+end
+
+local function startTPWalk(speed)
+    -- Останавливаем текущий TPWalk если он активен
+    if TPWalk then
+        stopTPWalk()
+        return
+    end
+    
+    -- Устанавливаем новую скорость
+    currentSpeed = tonumber(speed) or 1.0
+    SpeedBox.Text = formatSpeed(currentSpeed)
+    
+    -- Включаем TPWalk
+    TPWalk = true
+    
+    TPWalkingConnection = game:GetService("RunService").Stepped:Connect(function(_, deltaTime)
+        if TPWalk then
+            local humanoid = getHum()
+            if humanoid and humanoid.MoveDirection.Magnitude > 0 then
+                local moveDirection = humanoid.MoveDirection
+                local translation = moveDirection * currentSpeed * deltaTime * 10
+                local character = getChar()
+                if character then
+                    character:TranslateBy(translation)
+                end
+            end
+        end
+    end)
+    
+    updateStatus()
+end
+
+-- Функция для применения скорости (без перезапуска TPWalk)
+local function applySpeed(speed)
+    local newSpeed = tonumber(speed)
+    if newSpeed and newSpeed > 0 and newSpeed <= 500 then
+        currentSpeed = newSpeed
+        SpeedBox.Text = formatSpeed(currentSpeed)
+        
+        if TPWalk then
+            -- Если TPWalk активен, перезапускаем с новой скоростью
+            stopTPWalk()
+            startTPWalk(currentSpeed)
+        else
+            updateStatus()
+        end
+    end
+end
+
+-- Обработчики событий
+ToggleButton.MouseButton1Click:Connect(function()
+    if TPWalk then
+        stopTPWalk()
+    else
+        local speed = tonumber(SpeedBox.Text) or currentSpeed
+        startTPWalk(speed)
+    end
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    -- Выключаем TPWalk перед закрытием
+    stopTPWalk()
+    ScreenGui:Destroy()
+end)
+
+-- Валидация ввода и обновление скорости
+SpeedBox.FocusLost:Connect(function()
+    local text = SpeedBox.Text
+    if text == "" then
+        SpeedBox.Text = formatSpeed(currentSpeed)
+    else
+        local num = tonumber(text)
+        if not num or num <= 0 then
+            SpeedBox.Text = formatSpeed(currentSpeed)
+        else
+            -- Ограничиваем максимальную скорость
+            if num > 500 then num = 500 end
+            applySpeed(num)
+        end
+    end
+end)
+
+-- Также обновляем скорость при нажатии Enter
+SpeedBox.Focused:Connect(function()
+    SpeedBox.Text = tostring(currentSpeed) -- Показываем полное число при фокусе
+end)
+
+-- Автоматическое отключение TPWalk при смерти персонажа, но GUI остается
+local function onCharacterRemoving()
+    stopTPWalk() -- Отключаем TPWalk при смерти
+end
+
+game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(onCharacterRemoving)
+
+-- Автоматическое закрытие GUI только при выходе игрока из игры
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+    if player == game:GetService("Players").LocalPlayer then
+        -- Игрок выходит из игры, уничтожаем GUI
+        if ScreenGui and ScreenGui.Parent then
+            ScreenGui:Destroy()
+        end
+    end
+end)
+
+-- Адаптация для телефона
+if game:GetService("UserInputService").TouchEnabled then
+    MainFrame.Size = UDim2.new(0, 140, 0, 70)
+    MainFrame.Position = UDim2.new(0, 10, 0, 120)
+    Title.TextSize = 12
+    SpeedBox.TextSize = 12
+    ToggleButton.TextSize = 12
+    StatusLabel.TextSize = 10
+    CloseButton.TextSize = 14
+    
+    -- Делаем кнопки больше для сенсорного ввода
+    SpeedBox.Size = UDim2.new(0.5, -10, 0, 26)
+    ToggleButton.Size = UDim2.new(0.5, -10, 0, 26)
+    SpeedBox.Position = UDim2.new(0, 5, 0, 24)
+    ToggleButton.Position = UDim2.new(0.5, 5, 0, 24)
+    StatusLabel.Position = UDim2.new(0, 5, 0, 54)
+    StatusLabel.Size = UDim2.new(1, -10, 0, 16)
+end
+
+-- Оригинальные команды (оставлены для совместимости)
+cmd.add({"tpwalk", "tpwalk"}, {"tpwalk <number>", "More undetectable walkspeed script"}, function(...)
+    local speed = tonumber(...) or currentSpeed
+    if TPWalk then
+        stopTPWalk()
+    else
+        startTPWalk(speed)
+    end
+end, true)
+
+cmd.add({"untpwalk"}, {"untpwalk", "Stops the tpwalk command"}, function()
+    stopTPWalk()
+end)
+
+-- Инициализация статуса
+updateStatus()
+
+-- Активация GUI
+ScreenGui.Enabled = true 
